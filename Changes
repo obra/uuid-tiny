@@ -1,5 +1,11 @@
 Revision history for UUID-Tiny
 
+1.01    2009-07-06, caugustin.de
+        Synopsis corrected after CPAN upload of version 1.00.
+        Explicit use of Digest::MD5 and Digest::SHA1 after related failues on
+        CPAN Testers (let's see if it will help ...).
+        Modified clk_seq algorithm (simplified, independent of node_id).
+
 1.00    2009-06-21, caugustin.de
         First, feature-complete and tested version.
 

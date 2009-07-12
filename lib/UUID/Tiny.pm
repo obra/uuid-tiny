@@ -4,7 +4,8 @@ use 5.006;
 use warnings;
 use strict;
 use Carp;
-use Digest;
+use Digest::MD5;
+use Digest::SHA1;
 use MIME::Base64;
 use Time::HiRes;
 use POSIX;
@@ -16,11 +17,11 @@ UUID::Tiny - Pure Perl UUID Support With Functional Interface
 
 =head1 VERSION
 
-Version 1.00
+Version 1.01
 
 =cut
 
-our $VERSION = '1.00';
+our $VERSION = '1.01';
 
 
 =head1 SYNOPSIS
@@ -37,7 +38,7 @@ Create version 1, 3, 4 and 5 UUIDs:
     my $v5_with_NS_UUID    = create_UUID(UUID_V5, UUID_NS_DNS, 'caugustin.de');
 
     my $v1-mc_UUID_string  = create_UUID_as_string(UUID_V1);
-    my $v3-md5_UUID_string = UUID_to_string($v3-md5_UUID_string);
+    my $v3-md5_UUID_string = UUID_to_string($v3-md5_UUID);
 
     if ( version_of_UUID($v1-mc_UUID) == 1   ) { ... };
     if ( version_of_UUID($v5-sha1_UUID) == 5 ) { ... };
@@ -82,8 +83,20 @@ are locked in the functions that access them. (Not tested.)
 
 =head1 DEPENDENCIES
 
-This module should run from Perl 5.6 up and uses only standard modules for its
-job. No compilation or installation required.
+This module should run from Perl 5.8 up and uses only standard modules for its
+job. No compilation or installation required. These are the modules UUID::Tiny
+depends on:
+
+    Carp
+    Digest::MD5
+    Digest::SHA1
+    MIME::Base64
+    Time::HiRes
+    POSIX
+
+Some CPAN Testers fail due to missing Digest::MD5 and/or Digest::SHA1 - even
+on newer systems. I thought these are standard modules (and they are as far as
+I can get information about them) ...
 
 =cut
 
@@ -200,8 +213,9 @@ sub create_UUID {
     my $name    = defined $arg3 ? $arg3 : $arg2;
 
     if ($v == UUID_V1) {
-        # Set time in UUID ...
-        my $timestamp = _get_timestamp();
+        # Create time and clock sequence ...
+        my $timestamp = Time::HiRes::time();
+        my $clk_seq   = _get_clk_seq($timestamp);
 
         # hi = time mod (1000000 / 0x100000000)
         my $hi = floor($timestamp / 65536.0 / 512 * 78125);
@@ -224,23 +238,23 @@ sub create_UUID {
             $hi -= 0x0e4de22e;  # wrap around
         }
 
+        # Set time in UUID ...
         substr $uuid, 0, 4, pack('N', $low);                 # set time low
         substr $uuid, 4, 2, pack('n', $hi & 0xffff);         # set time mid
         substr $uuid, 6, 2, pack('n', ($hi >> 16) & 0x0fff); # set time high
 
         # Set clock sequence in UUID ...
-        substr $uuid, 8, 2, pack('n', _get_clk_seq());
+        substr $uuid, 8, 2, pack('n', $clk_seq);
 
         # Set random node in UUID ...
         substr $uuid, 10, 6, _random_node_id();
 
         # Set version 1 in UUID ...
-        substr $uuid, 6, 1,
-            chr(ord(substr($uuid, 6, 1)) & 0x0f | 0x10);
+        substr $uuid, 6, 1, chr(ord(substr($uuid, 6, 1)) & 0x0f | 0x10);
     }
     elsif ($v == UUID_V3 || $v == UUID_V5) {
         # Create digest in UUID ...
-        my $d = Digest->new($v == UUID_V3 ? 'MD5' : 'SHA-1');
+        my $d = $v == UUID_V3 ? Digest::MD5->new() : Digest::SHA1->new();
         $d->reset();
         $d->add($ns_uuid);
         if (my $ref = ref $name) {
@@ -475,49 +489,20 @@ sub equal_UUIDs {
 # Private functions ...
 #
 
-sub _get_timestamp {
-    return Time::HiRes::time();
-}
-
 my $last_timestamp;
-my $last_node;
 my $clk_seq;
 
 sub _get_clk_seq {
-    my $node_id = shift;
-
+    my $ts = shift;
     lock $last_timestamp;
-    lock $last_node;
     lock $clk_seq;
 
-    my $inc_seq = 0;
+    $clk_seq = _generate_clk_seq() if !defined $clk_seq;
 
-    my $ts = _get_timestamp();
-    if (! defined $last_timestamp || $ts <= $last_timestamp) {
-        $inc_seq ++;
-    }
-    $last_timestamp = $ts;
-
-    if (! defined $last_node) {
-        if (defined $node_id) {
-            $inc_seq ++;
-        }
-    }
-    else {
-        if (! defined $node_id || $node_id ne $last_node) {
-            $inc_seq ++;
-        }
-    }
-    $last_node = $node_id;
-
-    if (! defined $clk_seq) {
-        $clk_seq = _generate_clk_seq();
-        return $clk_seq & 0x03ff;
-    }
-
-    if ($inc_seq) {
+    if (!defined $last_timestamp || $ts <= $last_timestamp) {
         $clk_seq = ($clk_seq + 1) % 65536;
     }
+    $last_timestamp = $ts;
 
     return $clk_seq & 0x03ff;
 }
@@ -601,7 +586,7 @@ sub _fold_into_octets {
 sub _digest_as_octets {
     my $num_octets = shift;
 
-    my $d = Digest->new('MD5');
+    my $d = Digest::MD5->new();
     $d->add($_) for @_;
 
     return _fold_into_octets($num_octets, $d->digest);

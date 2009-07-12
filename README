@@ -1,4 +1,4 @@
-UUID-Tiny Version 1.00
+UUID-Tiny Version 1.01
 
 This is a Pure Perl module for the creation of UUIDs:
 
@@ -29,7 +29,14 @@ To install this module, run the following commands:
 
 DEPENDENCIES
 
-None. (Should run from Perl 5.6 up and uses only standard modules.)
+Should run from Perl 5.8 up and uses only standard modules:
+
+    Carp
+    Digest::MD5
+    Digest::SHA1
+    MIME::Base64
+    Time::HiRes
+    POSIX
 
 
 SUPPORT AND DOCUMENTATION
