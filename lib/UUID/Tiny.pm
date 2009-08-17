@@ -1,11 +1,10 @@
 package UUID::Tiny;
 
-use 5.006;
+use 5.008;
 use warnings;
 use strict;
 use Carp;
 use Digest::MD5;
-#use Digest::SHA1;
 use MIME::Base64;
 use Time::HiRes;
 use POSIX;
