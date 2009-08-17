@@ -10,18 +10,15 @@ use MIME::Base64;
 use Time::HiRes;
 use POSIX;
 
-#
-# Do some preparation ...
-#
-my $sha_api;
+our $SHA1_CALCULATOR = undef;
 
-BEGIN {
+{
     # Check for availability of SHA-1 ...
-    $sha_api = eval 'use Digest::SHA; 1';
-    $sha_api = eval 'use Digest::SHA1; 2' unless $sha_api;
-    $sha_api = eval 'use Digest::SHA::PurePerl; 3' unless $sha_api;
-    $sha_api = 0 unless $sha_api;
-}
+	local $@; # don't leak an error condition
+	eval { require Digest::SHA; $SHA1_CALCULATOR =  Digest::SHA->new(1)} ||
+	eval { require Digest::SHA1; $SHA1_CALCULATOR =  Digest::SHA1->new() } ||
+	eval { require Digest::SHA::PurePerl; $SHA1_CALCULATOR =  Digest::SHA::PurePerl->new(1)};
+};
 
 
 =head1 NAME
@@ -96,13 +93,13 @@ are locked in the functions that access them. (Not tested.)
 
 =head1 DEPENDENCIES
 
-This module should run from Perl 5.6 up and uses mostly standard (5.8 core)
+This module should run from Perl 5.8 up and uses mostly standard (5.8 core)
 modules for its job. No compilation or installation required. These are the
 modules UUID::Tiny depends on:
 
     Carp
     Digest::MD5   Perl 5.8 core
-    Digest::SHA1
+    Digest::SHA   Perl 5.10 core (OR Digest::SHA1 OR Digest::SHA::PurePerl)
     MIME::Base64  Perl 5.8 core
     Time::HiRes   Perl 5.8 core
     POSIX         Perl 5.8 core
@@ -249,14 +246,12 @@ without an appropriate module available.
 =cut
 
 sub UUID_SHA1_AVAIL {
-    return $sha_api;
+    return defined $SHA1_CALCULATOR ? 1 :0;
 }
-
 
 =back
 
 =cut
-
 
 =head1 FUNCTIONS
 
@@ -273,8 +268,6 @@ representations.
 =over 4
 
 =cut
-
-
 
 =item B<create_UUID()>, B<create_uuid()> (:std)
 
@@ -406,31 +399,29 @@ sub _create_v5_uuid {
     my $name    = shift;
     my $uuid    = '';
 
-    # Create digest in UUID ...
-    my $d
-        = $sha_api == 1 ? Digest::SHA->new(1)
-        : $sha_api == 2 ? Digest::SHA1->new()
-        : $sha_api == 3 ? Digest::SHA::PurePerl->new(1)
-        : croak __PACKAGE__
+	if (!$SHA1_CALCULATOR) {
+         croak __PACKAGE__
         . '::create_uuid(): No SHA-1 implementation available! '
         . 'Please install Digest::SHA1, Digest::SHA or '
         . 'Digest::SHA::PurePerl to use SHA-1 based UUIDs.';
-    $d->reset();
-    $d->add($ns_uuid);
+	}
+
+
+    $SHA1_CALCULATOR->reset();
+    $SHA1_CALCULATOR->add($ns_uuid);
     if ( my $ref = ref $name ) {
         croak __PACKAGE__ . '::create_uuid(): Name for v5 UUID' . ' has to be SCALAR, GLOB or IO object!'
             unless $ref =~ m/^(?:GLOB|IO::)/;
-        $d->addfile($name);
+        $SHA1_CALCULATOR->addfile($name);
     } else {
         croak __PACKAGE__ . '::create_uuid(): Name for v5 UUID is not defined!'
             unless defined $name;
-        $d->add($name);
+        $SHA1_CALCULATOR->add($name);
     }
-    $uuid = substr( $d->digest(), 0, 16 );    # Use only first 16 Bytes
+    $uuid = substr( $SHA1_CALCULATOR->digest(), 0, 16 );    # Use only first 16 Bytes
 
     return _set_uuid_version($uuid => 0x50);
 }
-
 
 sub _set_uuid_version {
 	my $uuid = shift;
@@ -440,8 +431,6 @@ sub _set_uuid_version {
 	return $uuid;
 
 }
-
-
 
 =item B<create_UUID_as_string()>, B<create_uuid_as_string()> (:std)
 
