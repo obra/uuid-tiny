@@ -15,6 +15,7 @@ WriteMakefile(
     	'Carp'         => 0,
     	'Digest::MD5'  => 0,
         'Digest::SHA1' => 0,
+		'MIME::Base64' => 0,
 		'Time::HiRes'  => 0,
 		'POSIX'        => 0,
         'Test::More'   => 0,

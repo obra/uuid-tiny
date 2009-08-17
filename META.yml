@@ -1,7 +1,7 @@
 # http://module-build.sourceforge.net/META-spec.html
 #XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         UUID-Tiny
-version:      1.01
+version:      1.01_05
 version_from: lib/UUID/Tiny.pm
 installdirs:  site
 requires:
@@ -9,6 +9,7 @@ requires:
     Digest::MD5:                   0
     Digest::SHA1:                  0
     IO::File:                      0
+    MIME::Base64:                  0
     POSIX:                         0
     Test::More:                    0
     Time::HiRes:                   0

@@ -131,6 +131,7 @@ undef $fh;
 #
 # Create v5 UUIDs ...
 #
+diag("UUID_SHA1_AVAIL is " . UUID_SHA1_AVAIL);
 is(
     create_UUID_as_string( UUID_V5, UUID_NS_DNS, 'python.org' ),
     '886313e1-3b8a-5372-9b90-0c9aee199e5d',

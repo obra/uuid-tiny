@@ -5,10 +5,23 @@ use warnings;
 use strict;
 use Carp;
 use Digest::MD5;
-use Digest::SHA1;
+#use Digest::SHA1;
 use MIME::Base64;
 use Time::HiRes;
 use POSIX;
+
+#
+# Do some preparation ...
+#
+my $sha_api;
+
+BEGIN {
+    # Check for availability of SHA-1 ...
+    $sha_api = eval 'use Digest::SHA; 1';
+    $sha_api = eval 'use Digest::SHA1; 2' unless $sha_api;
+    $sha_api = eval 'use Digest::SHA::PurePerl; 3' unless $sha_api;
+    $sha_api = 0 unless $sha_api;
+}
 
 
 =head1 NAME
@@ -17,11 +30,11 @@ UUID::Tiny - Pure Perl UUID Support With Functional Interface
 
 =head1 VERSION
 
-Version 1.01
+Version 1.01_05
 
 =cut
 
-our $VERSION = '1.01';
+our $VERSION = '1.01_05';
 
 
 =head1 SYNOPSIS
@@ -30,30 +43,30 @@ Create version 1, 3, 4 and 5 UUIDs:
 
     use UUID::Tiny;
 
-    my $v1-mc_UUID         = create_UUID();
-    my $v3-md5_UUID        = create_UUID(UUID_V3, $str);
-    my $v3-md5_UUID        = create_UUID(UUID_V3, UUID_NS_DNS, 'caugustin.de');
-    my $v4-rand_UUID       = create_UUID(UUID_V4);
-    my $v5-sha1_UUID       = create_UUID(UUID_V5, $str);
+    my $v1_mc_UUID         = create_UUID();
+    my $v3_md5_UUID        = create_UUID(UUID_V3, $str);
+    my $v3_md5_UUID        = create_UUID(UUID_V3, UUID_NS_DNS, 'caugustin.de');
+    my $v4_rand_UUID       = create_UUID(UUID_V4);
+    my $v5_sha1_UUID       = create_UUID(UUID_V5, $str);
     my $v5_with_NS_UUID    = create_UUID(UUID_V5, UUID_NS_DNS, 'caugustin.de');
 
-    my $v1-mc_UUID_string  = create_UUID_as_string(UUID_V1);
-    my $v3-md5_UUID_string = UUID_to_string($v3-md5_UUID);
+    my $v1_mc_UUID_string  = create_UUID_as_string(UUID_V1);
+    my $v3_md5_UUID_string = UUID_to_string($v3_md5_UUID);
 
-    if ( version_of_UUID($v1-mc_UUID) == 1   ) { ... };
-    if ( version_of_UUID($v5-sha1_UUID) == 5 ) { ... };
-    if ( is_UUID_string($v1-mc_UUID_string)  ) { ... };
+    if ( version_of_UUID($v1_mc_UUID) == 1   ) { ... };
+    if ( version_of_UUID($v5_sha1_UUID) == 5 ) { ... };
+    if ( is_UUID_string($v1_mc_UUID_string)  ) { ... };
     if ( equal_UUIDs($uuid1, $uuid2)         ) { ... };
 
-    my $uuid_time    = time_of_UUID($v1-mc_UUID);
-    my $uuid_clk_seq = clk_seq_of_UUID($v1-mc_UUID);
+    my $uuid_time    = time_of_UUID($v1_mc_UUID);
+    my $uuid_clk_seq = clk_seq_of_UUID($v1_mc_UUID);
 
 =cut
 
 
 =head1 DESCRIPTION
 
-UUID::Tiny is a lightweight, dependency-free Pure Perl module for UUID
+UUID::Tiny is a lightweight, low dependency Pure Perl module for UUID
 creation and testing. This module provides the creation of version 1 time
 based UUIDs (using random multicast MAC addresses), version 3 MD5 based UUIDs,
 version 4 random UUIDs, and version 5 SHA-1 based UUIDs.
@@ -83,53 +96,87 @@ are locked in the functions that access them. (Not tested.)
 
 =head1 DEPENDENCIES
 
-This module should run from Perl 5.8 up and uses only standard modules for its
-job. No compilation or installation required. These are the modules UUID::Tiny
-depends on:
+This module should run from Perl 5.6 up and uses mostly standard (5.8 core)
+modules for its job. No compilation or installation required. These are the
+modules UUID::Tiny depends on:
 
     Carp
-    Digest::MD5
+    Digest::MD5   Perl 5.8 core
     Digest::SHA1
-    MIME::Base64
-    Time::HiRes
-    POSIX
-
-Some CPAN Testers fail due to missing Digest::MD5 and/or Digest::SHA1 - even
-on newer systems. I thought these are standard modules (and they are as far as
-I can get information about them) ...
+    MIME::Base64  Perl 5.8 core
+    Time::HiRes   Perl 5.8 core
+    POSIX         Perl 5.8 core
 
 =cut
 
 
+=head1 ATTENTION! NEW STANDARD INTERFACE (IN PREPARATION FOR V2.00)
+
+After some debate I'm convinced that it is more Perlish (and far easier to
+write) to use all-lowercase function names - without exceptions. And that it
+is more polite to export symbols only on demand.
+
+While the 1.0x versions will continue to export the old, "legacy" interface on
+default, the future standard interface is available using the C<:std> tag on
+import from version 1.02 on:
+
+    use UUID::Tiny ':std';
+    my $md5_uuid = create_uuid(UUID_MD5, $str);
+
+In preparation for the upcoming version 2.00 of UUID::Tiny you should use the
+C<:legacy> tag if you want to stay with the version 1.0x interface:
+
+    use UUID::Tiny ':legacy';
+    my $md5_uuid = create_UUID(UUID_V3, $str);
+
+=cut
+
 use Exporter;
 our @ISA = qw(Exporter);
-our @EXPORT = qw(
-    UUID_NIL
-    UUID_NS_DNS
-    UUID_NS_URL
-    UUID_NS_OID
-    UUID_NS_X500
-    UUID_V1
-    UUID_V3
-    UUID_V4
-    UUID_V5
-    create_UUID
-    create_UUID_as_string
-    is_UUID_string
-    UUID_to_string
-    string_to_UUID
-    version_of_UUID
-    time_of_UUID
-    clk_seq_of_UUID
-    equal_UUIDs
+our @EXPORT;
+our @EXPORT_OK;
+our %EXPORT_TAGS = (
+     std =>         [qw(
+                        UUID_NIL
+                        UUID_NS_DNS UUID_NS_URL UUID_NS_OID UUID_NS_X500
+                        UUID_V1 UUID_TIME
+                        UUID_V3 UUID_MD5
+                        UUID_V4 UUID_RANDOM
+                        UUID_V5 UUID_SHA1
+                        UUID_SHA1_AVAIL
+                        create_uuid create_uuid_as_string
+                        is_uuid_string
+                        uuid_to_string string_to_uuid
+                        version_of_uuid time_of_uuid clk_seq_of_uuid
+                        equal_uuids
+                    )],
+    legacy =>       [qw(
+                        UUID_NIL
+                        UUID_NS_DNS UUID_NS_URL UUID_NS_OID UUID_NS_X500
+                        UUID_V1
+                        UUID_V3
+                        UUID_V4
+                        UUID_V5
+                        UUID_SHA1_AVAIL
+                        create_UUID create_UUID_as_string
+                        is_UUID_string
+                        UUID_to_string string_to_UUID
+                        version_of_UUID time_of_UUID clk_seq_of_UUID
+                        equal_UUIDs
+                    )],
 );
+
+Exporter::export_tags('legacy');
+Exporter::export_ok_tags('std');
 
 
 =head1 CONSTANTS
 
 =cut
 
-=head2 NIL UUID
+=over 4
+
+=item B<NIL UUID>
 
 This module provides the NIL UUID (shown with its string representation):
 
@@ -140,7 +187,7 @@ This module provides the NIL UUID (shown with its string representation):
 use constant UUID_NIL => "\x00" x 16;
 
 
-=head2 Pre-defined Namespace UUIDs
+=item B<Pre-defined Namespace UUIDs>
 
 This module provides the common pre-defined namespace UUIDs (shown with their
 string representation):
@@ -162,6 +209,54 @@ use constant UUID_NS_X500 =>
     "\x6b\xa7\xb8\x14\x9d\xad\x11\xd1\x80\xb4\x00\xc0\x4f\xd4\x30\xc8";
 
 
+=item B<UUID versions>
+
+This module provides the UUID version numbers as constants:
+
+    UUID_V1
+    UUID_V3
+    UUID_V4
+    UUID_V5
+
+With C<use UUID::Tiny ':std';> you get additional, "speaking" constants:
+
+    UUID_TIME
+    UUID_MD5
+    UUID_RANDOM
+    UUID_SHA1
+
+=cut
+
+use constant UUID_V1 => 1; use constant UUID_TIME   => 1;
+use constant UUID_V3 => 3; use constant UUID_MD5    => 3;
+use constant UUID_V4 => 4; use constant UUID_RANDOM => 4;
+use constant UUID_V5 => 5; use constant UUID_SHA1   => 5;
+
+
+=item B<UUID_SHA1_AVAIL>
+
+    my $uuid = create_UUID( UUID_SHA1_AVAIL? UUID_V5 : UUID_V3, $str );
+
+This function returns a positive value if a module to create SHA-1 digests
+could be loaded, 0 otherwise.
+
+UUID::Tiny (since version 1.02) tries to load
+Digest::SHA (1), Digest::SHA1 (2) or Digest::SHA::PurePerl (3), but does not
+die if none of them is found. Instead C<create_UUID()> and
+C<create_UUID_as_string()> die when trying to create an SHA-1 based UUID
+without an appropriate module available.
+
+=cut
+
+sub UUID_SHA1_AVAIL {
+    return $sha_api;
+}
+
+
+=back
+
+=cut
+
 
 =head1 FUNCTIONS
 
@@ -175,19 +270,21 @@ represantion of UUIDs.
 All query and test functions (except C<is_UUID_string>) accept both
 representations.
 
+=over 4
+
 =cut
 
 
 
-=head2 C<create_UUID()>
+=item B<create_UUID()>, B<create_uuid()> (:std)
 
-    my $v1-mc_UUID   = create_UUID();
-    my $v1-mc_UUID   = create_UUID(UUID_V1);
-    my $v3-md5_UUID  = create_UUID(UUID_V3, $ns_uuid, $name_or_filehandle);
-    my $v3-md5_UUID  = create_UUID(UUID_V3, $name_or_filehandle);
-    my $v4-rand_UUID = create_UUID(UUID_V4);
-    my $v5-sha1_UUID = create_UUID(UUID_V5, $ns_uuid $name_or_filehandle);
-    my $v5-sha1_UUID = create_UUID(UUID_V5, $name_or_filehandle);
+    my $v1_mc_UUID   = create_UUID();
+    my $v1_mc_UUID   = create_UUID(UUID_V1);
+    my $v3_md5_UUID  = create_UUID(UUID_V3, $ns_uuid, $name_or_filehandle);
+    my $v3_md5_UUID  = create_UUID(UUID_V3, $name_or_filehandle);
+    my $v4_rand_UUID = create_UUID(UUID_V4);
+    my $v5_sha1_UUID = create_UUID(UUID_V5, $ns_uuid $name_or_filehandle);
+    my $v5_sha1_UUID = create_UUID(UUID_V5, $name_or_filehandle);
 
 Creates a binary UUID in network byte order (MSB first). For v3 and v5 UUIDs a
 C<SCALAR> (normally a string), C<GLOB> ("classic" file handle) or C<IO> object
@@ -200,16 +297,11 @@ a namespace UUID is missing (only 2 arguments are used).
 
 =cut
 
-use constant UUID_V1 => 1;
-use constant UUID_V3 => 3;
-use constant UUID_V4 => 4;
-use constant UUID_V5 => 5;
-
-sub create_UUID {
+sub create_uuid {
     use bytes;
     my ($v, $arg2, $arg3) = (shift || UUID_V1, shift, shift);
     my $uuid    = UUID_NIL;
-    my $ns_uuid = string_to_UUID(defined $arg3 ? $arg2 : UUID_NIL);
+    my $ns_uuid = string_to_uuid(defined $arg3 ? $arg2 : UUID_NIL);
     my $name    = defined $arg3 ? $arg3 : $arg2;
 
     if ($v == UUID_V1) {
@@ -254,19 +346,27 @@ sub create_UUID {
     }
     elsif ($v == UUID_V3 || $v == UUID_V5) {
         # Create digest in UUID ...
-        my $d = $v == UUID_V3 ? Digest::MD5->new() : Digest::SHA1->new();
+        my $d = $v == UUID_V3 ? Digest::MD5->new()
+              : $sha_api == 1 ? Digest::SHA->new(1)
+              : $sha_api == 2 ? Digest::SHA1->new()
+              : $sha_api == 3 ? Digest::SHA::PurePerl->new(1)
+              : croak __PACKAGE__
+                    . '::create_uuid(): No SHA-1 implementation available! '
+                    . 'Please install Digest::SHA1, Digest::SHA or '
+                    . 'Digest::SHA::PurePerl to use SHA-1 based UUIDs.'
+              ;
         $d->reset();
         $d->add($ns_uuid);
         if (my $ref = ref $name) {
             croak __PACKAGE__
-                . '::create_UUID: Name for v3 or v5 UUID'
+                . '::create_uuid(): Name for v3 or v5 UUID'
                 . ' has to be SCALAR, GLOB or IO object!'
                     unless $ref =~ m/^(?:GLOB|IO::)/;
             $d->addfile($name);
         }
         else {
             croak __PACKAGE__
-                . '::create_UUID: Name for v3 or v5 UUID is not defined!'
+                . '::create_uuid(): Name for v3 or v5 UUID is not defined!'
                     unless defined $name;
             $d->add($name);
         }
@@ -287,7 +387,7 @@ sub create_UUID {
         substr $uuid, 6, 1, chr(ord(substr($uuid, 6, 1)) & 0x0f | 0x40);
     }
     else {
-        croak __PACKAGE__ . "::createUUID: Invalid UUID version '$v'!";
+        croak __PACKAGE__ . "::create_uuid(): Invalid UUID version '$v'!";
     }
 
     # Set variant 2 in UUID ...
@@ -296,21 +396,23 @@ sub create_UUID {
     return $uuid;
 }
 
+*create_UUID = \&create_uuid;
 
 
-=head2 C<create_UUID_as_string()>
+=item B<create_UUID_as_string()>, B<create_uuid_as_string()> (:std)
 
 Similar to C<create_UUID>, but creates a UUID string.
 
 =cut
 
-sub create_UUID_as_string {
-    return UUID_to_string(create_UUID(@_));
+sub create_uuid_as_string {
+    return uuid_to_string(create_UUID(@_));
 }
 
+*create_UUID_as_string = \&create_uuid_as_string;
 
 
-=head2 C<is_UUID_string()>
+=item B<is_UUID_string()>, B<is_uuid_string()> (:std)
 
     my $bool = is_UUID_string($str);
 
@@ -320,13 +422,15 @@ my $IS_UUID_STRING = qr/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/is;
 my $IS_UUID_HEX    = qr/^[0-9a-f]{32}$/is;
 my $IS_UUID_Base64 = qr/^[+\/0-9A-Za-z]{22}==$/s;
 
-sub is_UUID_string {
+sub is_uuid_string {
     local $_ = shift;
     return m/$IS_UUID_STRING/;
 }
 
+*is_UUID_string = \&is_uuid_string;
 
-=head2 C<UUID_to_string()>
+
+=item B<UUID_to_string()>, B<uuid_to_string()> (:std)
 
     my $uuid_str = UUID_to_string($uuid);
 
@@ -334,12 +438,12 @@ This function returns C<$uuid> unchanged if it is a UUID string already.
 
 =cut
 
-sub UUID_to_string {
+sub uuid_to_string {
     my $uuid = shift;
     use bytes;
     return $uuid
         if $uuid =~ m/$IS_UUID_STRING/;
-    croak __PACKAGE__ . "::UUID_to_string: Invalid UUID!"
+    croak __PACKAGE__ . "::uuid_to_string(): Invalid UUID!"
         unless length $uuid == 16;
     return  join q{-},
             map { unpack 'H*', $_ }
@@ -347,8 +451,10 @@ sub UUID_to_string {
             ( 4, 2, 2, 2, 6 );
 }
 
+*UUID_to_string = \&uuid_to_string;
 
-=head2 C<string_to_UUID()>
+
+=item B<string_to_UUID()>, B<string_to_uuid()> (:std)
 
     my $uuid = string_to_UUID($uuid_str);
 
@@ -365,7 +471,7 @@ with C<is_UUID_string>!
 
 =cut
 
-sub string_to_UUID {
+sub string_to_uuid {
     local $_ = shift;
     use bytes;
     return $_ if length $_ == 16;
@@ -374,12 +480,13 @@ sub string_to_UUID {
     s/^(?:urn:)?(?:uuid:)?//io;
     tr/-//d;
     return pack 'H*', $_ if m/$IS_UUID_HEX/;
-    croak __PACKAGE__ . "::string_to_UUID: '$str' is no UUID string!";
+    croak __PACKAGE__ . "::string_to_uuid(): '$str' is no UUID string!";
 }
 
+*string_to_UUID = \&string_to_uuid;
 
 
-=head2 C<version_of_UUID()>
+=item B<version_of_UUID()>, B<version_of_uuid()> (:std)
 
     my $version = version_of_UUID($uuid);
 
@@ -387,16 +494,17 @@ This function accepts binary and string UUIDs.
 
 =cut
 
-sub version_of_UUID {
+sub version_of_uuid {
     my $uuid = shift;
     use bytes;
-    $uuid = string_to_UUID($uuid);
+    $uuid = string_to_uuid($uuid);
     return (ord(substr($uuid, 6, 1)) & 0xf0) >> 4;
 }
 
+*version_of_UUID = \&version_of_uuid;
 
 
-=head2 C<time_of_UUID()>
+=item B<time_of_UUID()>, B<time_of_uuid()> (:std)
 
     my $uuid_time = time_of_UUID($uuid);
 
@@ -407,11 +515,11 @@ Returns C<undef> if the UUID is not version 1.
 
 =cut
 
-sub time_of_UUID {
+sub time_of_uuid {
     local $_ = shift;
     use bytes;
-    $_ = string_to_UUID($_);
-    return unless version_of_UUID($_) == 1;
+    $_ = string_to_uuid($_);
+    return unless version_of_uuid($_) == 1;
     
     my $low = unpack 'N', substr($_, 0, 4);
     my $mid = unpack 'n', substr($_, 4, 2);
@@ -441,8 +549,10 @@ sub time_of_UUID {
     return $hi + $low;
 }
 
+*time_of_UUID = \&time_of_uuid;
 
-=head2 C<clk_seq_of_UUID()>
+
+=item B<clk_seq_of_UUID()>, B<clk_seq_of_uuid()> (:std)
 
     my $uuid_clk_seq = clk_seq_of_UUID($uuid);
 
@@ -451,11 +561,11 @@ version 1 UUID. Returns C<undef> if UUID is not version 1.
 
 =cut
 
-sub clk_seq_of_UUID {
+sub clk_seq_of_uuid {
     local $_ = shift;
     use bytes;
-    $_ = string_to_UUID($_);
-    return unless version_of_UUID($_) == 1;
+    $_ = string_to_uuid($_);
+    return unless version_of_uuid($_) == 1;
 
     my $r = unpack 'n', substr($_, 8, 2);
     my $v = $r >> 13;
@@ -468,8 +578,10 @@ sub clk_seq_of_UUID {
     return $r & ((1 << $w) - 1);
 }
 
+*clk_seq_of_UUID = \&clk_seq_of_uuid;
 
-=head2 C<equal_UUIDs>
+
+=item B<equal_UUIDs()>, B<equal_uuids()> (:std)
 
     my $bool = equal_UUIDs($uuid1, $uuid2);
 
@@ -478,11 +590,13 @@ Returns true if the provided UUIDs are equal. Accepts UUIDs and UUID strings
 
 =cut
 
-sub equal_UUIDs {
+sub equal_uuids {
     my ($u1, $u2) = @_;
     return unless defined $u1 && defined $u2;
-    return string_to_UUID($u1) eq string_to_UUID($u2);
+    return string_to_uuid($u1) eq string_to_uuid($u2);
 }
+
+*equal_UUIDs = \&equal_uuids;
 
 
 #
@@ -536,7 +650,7 @@ sub _random_node_id {
 
 # Seed rand only once per module load ...
 #
-our $seed;
+my $seed;
 
 sub _seed_rand {
     lock $seed;
@@ -600,17 +714,21 @@ sub _digest_as_16bit {
     return unpack 'n', _digest_as_octets(2, @_);
 }
 
+=back
+
+=cut
+
 
 =head1 DISCUSSION
 
 =over
 
-=item Why version 1 only with random multi-cast MAC addresses?
+=item B<Why version 1 only with random multi-cast MAC addresses?>
 
 The random multi-cast MAC address gives privacy, and getting the real MAC
 address with Perl is really dirty (and slow);
 
-=item Should version 3 or version 5 be used?
+=item B<Should version 3 or version 5 be used?>
 
 Using SHA-1 reduces the probabillity of collisions and provides a better
 "randomness" of the resulting UUID compared to MD5. Version 5 is recommended
@@ -683,6 +801,8 @@ L<http://search.cpan.org/dist/UUID-Tiny/>
 Kudos to ITO Nobuaki E<lt>banb@cpan.orgE<gt> for his UUID::Generator::PurePerl
 module! My work is based on his code, and without it I would've been lost with
 all those incomprehensible RFC texts and C codes ...
+
+Thanks to Jesse Vincent for his feedback and tips.
 
 
 =head1 COPYRIGHT & LICENSE
