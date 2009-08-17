@@ -406,7 +406,7 @@ Similar to C<create_UUID>, but creates a UUID string.
 =cut
 
 sub create_uuid_as_string {
-    return uuid_to_string(create_UUID(@_));
+    return uuid_to_string(create_uuid(@_));
 }
 
 *create_UUID_as_string = \&create_uuid_as_string;
