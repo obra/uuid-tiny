@@ -20,6 +20,10 @@ our $SHA1_CALCULATOR = undef;
 	eval { require Digest::SHA::PurePerl; $SHA1_CALCULATOR =  Digest::SHA::PurePerl->new(1)};
 };
 
+our $MD5_CALCULATOR = Digest::MD5->new();
+
+
+
 
 =head1 NAME
 
@@ -366,19 +370,18 @@ sub _create_v3_uuid {
     my $uuid    = '';
 
     # Create digest in UUID ...
-    my $d = Digest::MD5->new();
-    $d->reset();
-    $d->add($ns_uuid);
+    $MD5_CALCULATOR->reset();
+    $MD5_CALCULATOR->add($ns_uuid);
     if ( my $ref = ref $name ) {
         croak __PACKAGE__ . '::create_uuid(): Name for v3 UUID' . ' has to be SCALAR, GLOB or IO object!'
             unless $ref =~ m/^(?:GLOB|IO::)/;
-        $d->addfile($name);
+        $MD5_CALCULATOR->addfile($name);
     } else {
         croak __PACKAGE__ . '::create_uuid(): Name for v3 UUID is not defined!'
             unless defined $name;
-        $d->add($name);
+        $MD5_CALCULATOR->add($name);
     }
-    $uuid = substr( $d->digest(), 0, 16 );    # Use only first 16 Bytes
+    $uuid = substr( $MD5_CALCULATOR->digest(), 0, 16 );    # Use only first 16 Bytes
 
     return _set_uuid_version($uuid => 0x30);
 }
