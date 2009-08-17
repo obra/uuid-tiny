@@ -372,18 +372,20 @@ sub _create_v3_uuid {
     # Create digest in UUID ...
     $MD5_CALCULATOR->reset();
     $MD5_CALCULATOR->add($ns_uuid);
-    if ( my $ref = ref $name ) {
-        croak __PACKAGE__ . '::create_uuid(): Name for v3 UUID' . ' has to be SCALAR, GLOB or IO object!'
-            unless $ref =~ m/^(?:GLOB|IO::)/;
+
+    if ( ref($name) =~ m/^(?:GLOB|IO::)/ ) {
         $MD5_CALCULATOR->addfile($name);
-    } else {
-        croak __PACKAGE__ . '::create_uuid(): Name for v3 UUID is not defined!'
-            unless defined $name;
+    } elsif ( ref $name ) {
+        croak __PACKAGE__ . '::create_uuid(): Name for v3 UUID' . ' has to be SCALAR, GLOB or IO object, not '.ref($name).'!';
+    } elsif ( defined $name ) {
         $MD5_CALCULATOR->add($name);
+    } else {
+        croak __PACKAGE__ . '::create_uuid(): Name for v3 UUID is not defined!';
     }
+
     $uuid = substr( $MD5_CALCULATOR->digest(), 0, 16 );    # Use only first 16 Bytes
 
-    return _set_uuid_version($uuid => 0x30);
+    return _set_uuid_version( $uuid => 0x30 );
 }
 
 sub _create_v4_uuid {
@@ -412,15 +414,18 @@ sub _create_v5_uuid {
 
     $SHA1_CALCULATOR->reset();
     $SHA1_CALCULATOR->add($ns_uuid);
-    if ( my $ref = ref $name ) {
-        croak __PACKAGE__ . '::create_uuid(): Name for v5 UUID' . ' has to be SCALAR, GLOB or IO object!'
-            unless $ref =~ m/^(?:GLOB|IO::)/;
+
+
+    if ( ref($name) =~ m/^(?:GLOB|IO::)/ ) {
         $SHA1_CALCULATOR->addfile($name);
-    } else {
-        croak __PACKAGE__ . '::create_uuid(): Name for v5 UUID is not defined!'
-            unless defined $name;
+    } elsif ( ref $name ) {
+        croak __PACKAGE__ . '::create_uuid(): Name for v5 UUID' . ' has to be SCALAR, GLOB or IO object, not '.ref($name).'!';
+    } elsif ( defined $name ) {
         $SHA1_CALCULATOR->add($name);
+    } else {
+        croak __PACKAGE__ . '::create_uuid(): Name for v5 UUID is not defined!';
     }
+
     $uuid = substr( $SHA1_CALCULATOR->digest(), 0, 16 );    # Use only first 16 Bytes
 
     return _set_uuid_version($uuid => 0x50);
