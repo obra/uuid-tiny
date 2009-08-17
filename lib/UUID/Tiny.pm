@@ -463,8 +463,8 @@ our $IS_UUID_HEX    = qr/^[0-9a-f]{32}$/is;
 our $IS_UUID_Base64 = qr/^[+\/0-9A-Za-z]{22}(?:==)?$/s;
 
 sub is_uuid_string {
-    local $_ = shift;
-    return m/$IS_UUID_STRING/;
+    my $uuid = shift;
+    return $uuid =~ m/$IS_UUID_STRING/;
 }
 
 *is_UUID_string = \&is_uuid_string;
@@ -557,14 +557,14 @@ Returns C<undef> if the UUID is not version 1.
 =cut
 
 sub time_of_uuid {
-    local $_ = shift;
+    my $uuid = shift;
     use bytes;
-    $_ = string_to_uuid($_);
-    return unless version_of_uuid($_) == 1;
+    $uuid = string_to_uuid($uuid);
+    return unless version_of_uuid($uuid) == 1;
     
-    my $low = unpack 'N', substr($_, 0, 4);
-    my $mid = unpack 'n', substr($_, 4, 2);
-    my $high = unpack('n', substr($_, 6, 2)) & 0x0fff;
+    my $low = unpack 'N', substr($uuid, 0, 4);
+    my $mid = unpack 'n', substr($uuid, 4, 2);
+    my $high = unpack('n', substr($uuid, 6, 2)) & 0x0fff;
 
     my $hi = $mid | $high << 16;
 
@@ -603,12 +603,12 @@ version 1 UUID. Returns C<undef> if UUID is not version 1.
 =cut
 
 sub clk_seq_of_uuid {
-    local $_ = shift;
     use bytes;
-    $_ = string_to_uuid($_);
-    return unless version_of_uuid($_) == 1;
+    my $uuid = shift;
+    $uuid = string_to_uuid($uuid);
+    return unless version_of_uuid($uuid) == 1;
 
-    my $r = unpack 'n', substr($_, 8, 2);
+    my $r = unpack 'n', substr($uuid, 8, 2);
     my $v = $r >> 13;
     my $w = ($v >= 6) ? 3 # 11x
           : ($v >= 4) ? 2 # 10-
