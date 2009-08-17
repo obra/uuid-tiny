@@ -649,28 +649,6 @@ sub _random_node_id {
     return $id;
 }
 
-# Seed rand only once per module load ...
-#
-my $seed;
-
-sub _seed_rand {
-    lock $seed;
-
-    return if defined $seed;
-
-    my @r;
-    push @r, q{}  . Time::HiRes::time();
-    push @r, q{:} . $$;
-    push @r, join(q{:}, POSIX::uname());
-    $seed = _digest_as_32bit(@r);
-
-    srand($seed);
-
-    return;
-}
-
-_seed_rand();
-
 sub _rand_32bit {
     my $v1 = int(rand(65536)) % 65536;
     my $v2 = int(rand(65536)) % 65536;
