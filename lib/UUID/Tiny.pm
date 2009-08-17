@@ -628,7 +628,8 @@ sub _generate_clk_seq {
     push @data, q{}  . $$;
     push @data, q{:} . Time::HiRes::time();
 
-    return _digest_as_16bit(@data);
+	# 16 bit digest
+    return unpack 'n', _digest_as_octets(2, @data);
 }
 
 sub _random_node_id {
@@ -706,13 +707,7 @@ sub _digest_as_octets {
     return _fold_into_octets($num_octets, $d->digest);
 }
 
-sub _digest_as_32bit {
-    return unpack 'N', _digest_as_octets(4, @_);
-}
 
-sub _digest_as_16bit {
-    return unpack 'n', _digest_as_octets(2, @_);
-}
 
 =back
 
