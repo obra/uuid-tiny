@@ -305,86 +305,16 @@ sub create_uuid {
     my $name    = defined $arg3 ? $arg3 : $arg2;
 
     if ($v == UUID_V1) {
-        # Create time and clock sequence ...
-        my $timestamp = Time::HiRes::time();
-        my $clk_seq   = _get_clk_seq($timestamp);
-
-        # hi = time mod (1000000 / 0x100000000)
-        my $hi = floor($timestamp / 65536.0 / 512 * 78125);
-        $timestamp -= $hi * 512.0 * 65536 / 78125;
-        my $low = floor($timestamp * 10000000.0 + 0.5);
-
-        # MAGIC offset: 01B2-1DD2-13814000
-        if ($low < 0xec7ec000) {
-            $low += 0x13814000;
-        }
-        else {
-            $low -= 0xec7ec000;
-            $hi ++;
-        }
-
-        if ($hi < 0x0e4de22e) {
-            $hi += 0x01b21dd2;
-        }
-        else {
-            $hi -= 0x0e4de22e;  # wrap around
-        }
-
-        # Set time in UUID ...
-        substr $uuid, 0, 4, pack('N', $low);                 # set time low
-        substr $uuid, 4, 2, pack('n', $hi & 0xffff);         # set time mid
-        substr $uuid, 6, 2, pack('n', ($hi >> 16) & 0x0fff); # set time high
-
-        # Set clock sequence in UUID ...
-        substr $uuid, 8, 2, pack('n', $clk_seq);
-
-        # Set random node in UUID ...
-        substr $uuid, 10, 6, _random_node_id();
-
-        # Set version 1 in UUID ...
-        substr $uuid, 6, 1, chr(ord(substr($uuid, 6, 1)) & 0x0f | 0x10);
+		$uuid = _create_v1_uuid();
     }
-    elsif ($v == UUID_V3 || $v == UUID_V5) {
-        # Create digest in UUID ...
-        my $d = $v == UUID_V3 ? Digest::MD5->new()
-              : $sha_api == 1 ? Digest::SHA->new(1)
-              : $sha_api == 2 ? Digest::SHA1->new()
-              : $sha_api == 3 ? Digest::SHA::PurePerl->new(1)
-              : croak __PACKAGE__
-                    . '::create_uuid(): No SHA-1 implementation available! '
-                    . 'Please install Digest::SHA1, Digest::SHA or '
-                    . 'Digest::SHA::PurePerl to use SHA-1 based UUIDs.'
-              ;
-        $d->reset();
-        $d->add($ns_uuid);
-        if (my $ref = ref $name) {
-            croak __PACKAGE__
-                . '::create_uuid(): Name for v3 or v5 UUID'
-                . ' has to be SCALAR, GLOB or IO object!'
-                    unless $ref =~ m/^(?:GLOB|IO::)/;
-            $d->addfile($name);
-        }
-        else {
-            croak __PACKAGE__
-                . '::create_uuid(): Name for v3 or v5 UUID is not defined!'
-                    unless defined $name;
-            $d->add($name);
-        }
-        $uuid = substr($d->digest(), 0, 16); # Use only first 16 Bytes
-
-        # Set version in UUID ...
-        substr $uuid, 6, 1, chr(ord(substr($uuid, 6, 1))
-            & 0x0f | ($v == UUID_V3 ? 0x30 : 0x50));
+    elsif ($v == UUID_V3 ) {
+		$uuid = _create_v3_uuid($ns_uuid, $name);
+	}
+    elsif ($v == UUID_V5) {
+		$uuid = _create_v5_uuid($ns_uuid, $name);
     }
     elsif ($v == UUID_V4) {
-        # Create random value in UUID ...
-        $uuid = '';
-        for (1 .. 4) {
-            $uuid .= pack 'I', _rand_32bit();
-        }
-
-        # Set version in UUID ...
-        substr $uuid, 6, 1, chr(ord(substr($uuid, 6, 1)) & 0x0f | 0x40);
+		$uuid = _create_v4_uuid();
     }
     else {
         croak __PACKAGE__ . "::create_uuid(): Invalid UUID version '$v'!";
@@ -395,8 +325,121 @@ sub create_uuid {
 
     return $uuid;
 }
-
 *create_UUID = \&create_uuid;
+
+sub _create_v1_uuid() {
+    my $uuid = '';
+
+    # Create time and clock sequence ...
+    my $timestamp = Time::HiRes::time();
+    my $clk_seq   = _get_clk_seq($timestamp);
+
+    # hi = time mod (1000000 / 0x100000000)
+    my $hi = floor( $timestamp / 65536.0 / 512 * 78125 );
+    $timestamp -= $hi * 512.0 * 65536 / 78125;
+    my $low = floor( $timestamp * 10000000.0 + 0.5 );
+
+    # MAGIC offset: 01B2-1DD2-13814000
+    if ( $low < 0xec7ec000 ) {
+        $low += 0x13814000;
+    } else {
+        $low -= 0xec7ec000;
+        $hi++;
+    }
+
+    if ( $hi < 0x0e4de22e ) {
+        $hi += 0x01b21dd2;
+    } else {
+        $hi -= 0x0e4de22e;    # wrap around
+    }
+
+    # Set time in UUID ...
+    substr $uuid, 0, 4, pack( 'N', $low );            # set time low
+    substr $uuid, 4, 2, pack( 'n', $hi & 0xffff );    # set time mid
+    substr $uuid, 6, 2, pack( 'n', ( $hi >> 16 ) & 0x0fff );    # set time high
+
+    # Set clock sequence in UUID ...
+    substr $uuid, 8, 2, pack( 'n', $clk_seq );
+
+    # Set random node in UUID ...
+    substr $uuid, 10, 6, _random_node_id();
+
+    # Set version 1 in UUID ...
+    substr $uuid, 6, 1, chr( ord( substr( $uuid, 6, 1 ) ) & 0x0f | 0x10 );
+    return $uuid;
+}
+
+sub _create_v5_uuid {
+    my $ns_uuid = shift;
+    my $name    = shift;
+    my $uuid    = '';
+
+    # Create digest in UUID ...
+    my $d
+        = $sha_api == 1 ? Digest::SHA->new(1)
+        : $sha_api == 2 ? Digest::SHA1->new()
+        : $sha_api == 3 ? Digest::SHA::PurePerl->new(1)
+        : croak __PACKAGE__
+        . '::create_uuid(): No SHA-1 implementation available! '
+        . 'Please install Digest::SHA1, Digest::SHA or '
+        . 'Digest::SHA::PurePerl to use SHA-1 based UUIDs.';
+    $d->reset();
+    $d->add($ns_uuid);
+    if ( my $ref = ref $name ) {
+        croak __PACKAGE__ . '::create_uuid(): Name for v5 UUID' . ' has to be SCALAR, GLOB or IO object!'
+            unless $ref =~ m/^(?:GLOB|IO::)/;
+        $d->addfile($name);
+    } else {
+        croak __PACKAGE__ . '::create_uuid(): Name for v5 UUID is not defined!'
+            unless defined $name;
+        $d->add($name);
+    }
+    $uuid = substr( $d->digest(), 0, 16 );    # Use only first 16 Bytes
+
+    # Set version in UUID ...
+    substr $uuid, 6, 1, chr( ord( substr( $uuid, 6, 1 ) ) & 0x0f | 0x50 );
+    return $uuid;
+}
+
+
+sub _create_v3_uuid {
+    my $ns_uuid = shift;
+    my $name    = shift;
+    my $uuid    = '';
+
+    # Create digest in UUID ...
+    my $d = Digest::MD5->new();
+    $d->reset();
+    $d->add($ns_uuid);
+    if ( my $ref = ref $name ) {
+        croak __PACKAGE__ . '::create_uuid(): Name for v3 UUID' . ' has to be SCALAR, GLOB or IO object!'
+            unless $ref =~ m/^(?:GLOB|IO::)/;
+        $d->addfile($name);
+    } else {
+        croak __PACKAGE__ . '::create_uuid(): Name for v3 UUID is not defined!'
+            unless defined $name;
+        $d->add($name);
+    }
+    $uuid = substr( $d->digest(), 0, 16 );    # Use only first 16 Bytes
+
+    # Set version in UUID ...
+    substr $uuid, 6, 1, chr( ord( substr( $uuid, 6, 1 ) ) & 0x0f | 0x30 );
+    return $uuid;
+}
+
+sub _create_v4_uuid {
+
+    # Create random value in UUID ...
+    my $uuid = '';
+    for ( 1 .. 4 ) {
+        $uuid .= pack 'I', _rand_32bit();
+    }
+
+    # Set version in UUID ...
+    substr $uuid, 6, 1, chr( ord( substr( $uuid, 6, 1 ) ) & 0x0f | 0x40 );
+    return $uuid;
+}
+
 
 
 =item B<create_UUID_as_string()>, B<create_uuid_as_string()> (:std)
