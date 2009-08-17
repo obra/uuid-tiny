@@ -367,37 +367,6 @@ sub _create_v1_uuid() {
     return _set_uuid_version($uuid => 0x10);
 }
 
-sub _create_v5_uuid {
-    my $ns_uuid = shift;
-    my $name    = shift;
-    my $uuid    = '';
-
-    # Create digest in UUID ...
-    my $d
-        = $sha_api == 1 ? Digest::SHA->new(1)
-        : $sha_api == 2 ? Digest::SHA1->new()
-        : $sha_api == 3 ? Digest::SHA::PurePerl->new(1)
-        : croak __PACKAGE__
-        . '::create_uuid(): No SHA-1 implementation available! '
-        . 'Please install Digest::SHA1, Digest::SHA or '
-        . 'Digest::SHA::PurePerl to use SHA-1 based UUIDs.';
-    $d->reset();
-    $d->add($ns_uuid);
-    if ( my $ref = ref $name ) {
-        croak __PACKAGE__ . '::create_uuid(): Name for v5 UUID' . ' has to be SCALAR, GLOB or IO object!'
-            unless $ref =~ m/^(?:GLOB|IO::)/;
-        $d->addfile($name);
-    } else {
-        croak __PACKAGE__ . '::create_uuid(): Name for v5 UUID is not defined!'
-            unless defined $name;
-        $d->add($name);
-    }
-    $uuid = substr( $d->digest(), 0, 16 );    # Use only first 16 Bytes
-
-    return _set_uuid_version($uuid => 0x50);
-}
-
-
 sub _create_v3_uuid {
     my $ns_uuid = shift;
     my $name    = shift;
@@ -432,6 +401,35 @@ sub _create_v4_uuid {
     return _set_uuid_version($uuid => 0x40);
 }
 
+sub _create_v5_uuid {
+    my $ns_uuid = shift;
+    my $name    = shift;
+    my $uuid    = '';
+
+    # Create digest in UUID ...
+    my $d
+        = $sha_api == 1 ? Digest::SHA->new(1)
+        : $sha_api == 2 ? Digest::SHA1->new()
+        : $sha_api == 3 ? Digest::SHA::PurePerl->new(1)
+        : croak __PACKAGE__
+        . '::create_uuid(): No SHA-1 implementation available! '
+        . 'Please install Digest::SHA1, Digest::SHA or '
+        . 'Digest::SHA::PurePerl to use SHA-1 based UUIDs.';
+    $d->reset();
+    $d->add($ns_uuid);
+    if ( my $ref = ref $name ) {
+        croak __PACKAGE__ . '::create_uuid(): Name for v5 UUID' . ' has to be SCALAR, GLOB or IO object!'
+            unless $ref =~ m/^(?:GLOB|IO::)/;
+        $d->addfile($name);
+    } else {
+        croak __PACKAGE__ . '::create_uuid(): Name for v5 UUID is not defined!'
+            unless defined $name;
+        $d->add($name);
+    }
+    $uuid = substr( $d->digest(), 0, 16 );    # Use only first 16 Bytes
+
+    return _set_uuid_version($uuid => 0x50);
+}
 
 
 sub _set_uuid_version {
