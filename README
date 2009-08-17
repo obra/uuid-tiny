@@ -29,7 +29,7 @@ To install this module, run the following commands:
 
 DEPENDENCIES
 
-Should run from Perl 5.6 up and uses this modules (mostly Perl 5.8 core):
+Should run from Perl 5.8 up and uses this modules (mostly Perl 5.8 core):
 
     Carp
     Digest::MD5

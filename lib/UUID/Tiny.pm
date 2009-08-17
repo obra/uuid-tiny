@@ -30,11 +30,11 @@ UUID::Tiny - Pure Perl UUID Support With Functional Interface
 
 =head1 VERSION
 
-Version 1.01_05
+Version 1.01_06
 
 =cut
 
-our $VERSION = '1.01_05';
+our $VERSION = '1.01_06';
 
 
 =head1 SYNOPSIS
