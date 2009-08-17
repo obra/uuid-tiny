@@ -512,14 +512,15 @@ with C<is_UUID_string>!
 =cut
 
 sub string_to_uuid {
-    local $_ = shift;
+	my $uuid = shift;
+
     use bytes;
-    return $_ if length $_ == 16;
-    return decode_base64($_) if m/$IS_UUID_Base64/;
-    my $str = $_;
-    s/^(?:urn:)?(?:uuid:)?//io;
-    tr/-//d;
-    return pack 'H*', $_ if m/$IS_UUID_HEX/;
+    return $uuid if length $uuid == 16;
+    return decode_base64($uuid) if ($uuid =~ m/$IS_UUID_Base64/);
+    my $str = $uuid;
+    $uuid =~ s/^(?:urn:)?(?:uuid:)?//io;
+    $uuid =~ tr/-//d;
+    return pack 'H*', $uuid if $uuid =~ m/$IS_UUID_HEX/;
     croak __PACKAGE__ . "::string_to_uuid(): '$str' is no UUID string!";
 }
 
@@ -724,7 +725,6 @@ sub _digest_as_octets {
 
     return _fold_into_octets($num_octets, $MD5_CALCULATOR->digest);
 }
-
 
 
 =back
