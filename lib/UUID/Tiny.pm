@@ -310,11 +310,11 @@ sub create_uuid {
     elsif ($v == UUID_V3 ) {
 		$uuid = _create_v3_uuid($ns_uuid, $name);
 	}
-    elsif ($v == UUID_V5) {
-		$uuid = _create_v5_uuid($ns_uuid, $name);
-    }
     elsif ($v == UUID_V4) {
 		$uuid = _create_v4_uuid();
+	}
+    elsif ($v == UUID_V5) {
+		$uuid = _create_v5_uuid($ns_uuid, $name);
     }
     else {
         croak __PACKAGE__ . "::create_uuid(): Invalid UUID version '$v'!";
@@ -327,7 +327,7 @@ sub create_uuid {
 }
 *create_UUID = \&create_uuid;
 
-sub _create_v1_uuid() {
+sub _create_v1_uuid {
     my $uuid = '';
 
     # Create time and clock sequence ...
