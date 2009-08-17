@@ -719,10 +719,10 @@ sub _fold_into_octets {
 sub _digest_as_octets {
     my $num_octets = shift;
 
-    my $d = Digest::MD5->new();
-    $d->add($_) for @_;
+	$MD5_CALCULATOR->reset();
+    $MD5_CALCULATOR->add($_) for @_;
 
-    return _fold_into_octets($num_octets, $d->digest);
+    return _fold_into_octets($num_octets, $MD5_CALCULATOR->digest);
 }
 
 
