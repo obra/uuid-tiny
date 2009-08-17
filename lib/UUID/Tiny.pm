@@ -418,9 +418,9 @@ sub create_uuid_as_string {
 
 =cut
 
-my $IS_UUID_STRING = qr/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/is;
-my $IS_UUID_HEX    = qr/^[0-9a-f]{32}$/is;
-my $IS_UUID_Base64 = qr/^[+\/0-9A-Za-z]{22}==$/s;
+our $IS_UUID_STRING = qr/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/is;
+our $IS_UUID_HEX    = qr/^[0-9a-f]{32}$/is;
+our $IS_UUID_Base64 = qr/^[+\/0-9A-Za-z]{22}(?:==)?$/s;
 
 sub is_uuid_string {
     local $_ = shift;
