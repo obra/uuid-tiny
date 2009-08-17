@@ -364,9 +364,7 @@ sub _create_v1_uuid() {
     # Set random node in UUID ...
     substr $uuid, 10, 6, _random_node_id();
 
-    # Set version 1 in UUID ...
-    substr $uuid, 6, 1, chr( ord( substr( $uuid, 6, 1 ) ) & 0x0f | 0x10 );
-    return $uuid;
+    return _set_uuid_version($uuid => 0x10);
 }
 
 sub _create_v5_uuid {
@@ -396,9 +394,7 @@ sub _create_v5_uuid {
     }
     $uuid = substr( $d->digest(), 0, 16 );    # Use only first 16 Bytes
 
-    # Set version in UUID ...
-    substr $uuid, 6, 1, chr( ord( substr( $uuid, 6, 1 ) ) & 0x0f | 0x50 );
-    return $uuid;
+    return _set_uuid_version($uuid => 0x50);
 }
 
 
@@ -422,9 +418,7 @@ sub _create_v3_uuid {
     }
     $uuid = substr( $d->digest(), 0, 16 );    # Use only first 16 Bytes
 
-    # Set version in UUID ...
-    substr $uuid, 6, 1, chr( ord( substr( $uuid, 6, 1 ) ) & 0x0f | 0x30 );
-    return $uuid;
+    return _set_uuid_version($uuid => 0x30);
 }
 
 sub _create_v4_uuid {
@@ -435,9 +429,18 @@ sub _create_v4_uuid {
         $uuid .= pack 'I', _rand_32bit();
     }
 
-    # Set version in UUID ...
-    substr $uuid, 6, 1, chr( ord( substr( $uuid, 6, 1 ) ) & 0x0f | 0x40 );
-    return $uuid;
+    return _set_uuid_version($uuid => 0x40);
+}
+
+
+
+sub _set_uuid_version {
+	my $uuid = shift;
+	my $version = shift;
+    substr $uuid, 6, 1, chr( ord( substr( $uuid, 6, 1 ) ) & 0x0f | $version );
+
+	return $uuid;
+
 }
 
 
