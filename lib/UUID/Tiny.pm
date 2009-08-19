@@ -13,10 +13,13 @@ our $SHA1_CALCULATOR = undef;
 
 {
     # Check for availability of SHA-1 ...
-	local $@; # don't leak an error condition
-	eval { require Digest::SHA; $SHA1_CALCULATOR =  Digest::SHA->new(1)} ||
-	eval { require Digest::SHA1; $SHA1_CALCULATOR =  Digest::SHA1->new() } ||
-	eval { require Digest::SHA::PurePerl; $SHA1_CALCULATOR =  Digest::SHA::PurePerl->new(1)};
+    local $@; # don't leak an error condition
+    eval { require Digest::SHA;  $SHA1_CALCULATOR = Digest::SHA->new(1) } ||
+    eval { require Digest::SHA1; $SHA1_CALCULATOR = Digest::SHA1->new() } ||
+    eval {
+        require Digest::SHA::PurePerl;
+        $SHA1_CALCULATOR = Digest::SHA::PurePerl->new(1)
+    };
 };
 
 our $MD5_CALCULATOR = Digest::MD5->new();
@@ -30,11 +33,11 @@ UUID::Tiny - Pure Perl UUID Support With Functional Interface
 
 =head1 VERSION
 
-Version 1.01_06
+Version 1.01_07
 
 =cut
 
-our $VERSION = '1.01_06';
+our $VERSION = '1.01_07';
 
 
 =head1 SYNOPSIS
@@ -102,7 +105,7 @@ modules UUID::Tiny depends on:
 
     Carp
     Digest::MD5   Perl 5.8 core
-    Digest::SHA   Perl 5.10 core (OR Digest::SHA1 OR Digest::SHA::PurePerl)
+    Digest::SHA   Perl 5.10 core (or Digest::SHA1, or Digest::SHA::PurePerl)
     MIME::Base64  Perl 5.8 core
     Time::HiRes   Perl 5.8 core
     POSIX         Perl 5.8 core
@@ -237,19 +240,18 @@ use constant UUID_V5 => 5; use constant UUID_SHA1   => 5;
 
     my $uuid = create_UUID( UUID_SHA1_AVAIL? UUID_V5 : UUID_V3, $str );
 
-This function returns a positive value if a module to create SHA-1 digests
-could be loaded, 0 otherwise.
+This function returns 1 if a module to create SHA-1 digests could be loaded, 0
+otherwise.
 
-UUID::Tiny (since version 1.02) tries to load
-Digest::SHA (1), Digest::SHA1 (2) or Digest::SHA::PurePerl (3), but does not
-die if none of them is found. Instead C<create_UUID()> and
-C<create_UUID_as_string()> die when trying to create an SHA-1 based UUID
-without an appropriate module available.
+UUID::Tiny (since version 1.02) tries to load Digest::SHA, Digest::SHA1 or
+Digest::SHA::PurePerl, but does not die if none of them is found. Instead
+C<create_UUID()> and C<create_UUID_as_string()> die when trying to create an
+SHA-1 based UUID without an appropriate module available.
 
 =cut
 
 sub UUID_SHA1_AVAIL {
-    return defined $SHA1_CALCULATOR ? 1 :0;
+    return defined $SHA1_CALCULATOR ? 1 : 0;
 }
 
 =back
@@ -301,16 +303,16 @@ sub create_uuid {
     my $name    = defined $arg3 ? $arg3 : $arg2;
 
     if ($v == UUID_V1) {
-		$uuid = _create_v1_uuid();
+        $uuid = _create_v1_uuid();
     }
     elsif ($v == UUID_V3 ) {
-		$uuid = _create_v3_uuid($ns_uuid, $name);
-	}
+        $uuid = _create_v3_uuid($ns_uuid, $name);
+    }
     elsif ($v == UUID_V4) {
-		$uuid = _create_v4_uuid();
-	}
+        $uuid = _create_v4_uuid();
+    }
     elsif ($v == UUID_V5) {
-		$uuid = _create_v5_uuid($ns_uuid, $name);
+        $uuid = _create_v5_uuid($ns_uuid, $name);
     }
     else {
         croak __PACKAGE__ . "::create_uuid(): Invalid UUID version '$v'!";
@@ -321,7 +323,9 @@ sub create_uuid {
 
     return $uuid;
 }
+
 *create_UUID = \&create_uuid;
+
 
 sub _create_v1_uuid {
     my $uuid = '';
@@ -338,14 +342,16 @@ sub _create_v1_uuid {
     # MAGIC offset: 01B2-1DD2-13814000
     if ( $low < 0xec7ec000 ) {
         $low += 0x13814000;
-    } else {
+    }
+    else {
         $low -= 0xec7ec000;
         $hi++;
     }
 
     if ( $hi < 0x0e4de22e ) {
         $hi += 0x01b21dd2;
-    } else {
+    }
+    else {
         $hi -= 0x0e4de22e;    # wrap around
     }
 
@@ -374,21 +380,29 @@ sub _create_v3_uuid {
 
     if ( ref($name) =~ m/^(?:GLOB|IO::)/ ) {
         $MD5_CALCULATOR->addfile($name);
-    } elsif ( ref $name ) {
-        croak __PACKAGE__ . '::create_uuid(): Name for v3 UUID' . ' has to be SCALAR, GLOB or IO object, not '.ref($name).'!';
-    } elsif ( defined $name ) {
+    }
+    elsif ( ref $name ) {
+        croak __PACKAGE__
+            . '::create_uuid(): Name for v3 UUID'
+            . ' has to be SCALAR, GLOB or IO object, not '
+            . ref($name) .'!'
+            ;
+    }
+    elsif ( defined $name ) {
         $MD5_CALCULATOR->add($name);
-    } else {
-        croak __PACKAGE__ . '::create_uuid(): Name for v3 UUID is not defined!';
+    }
+    else {
+        croak __PACKAGE__
+            . '::create_uuid(): Name for v3 UUID is not defined!';
     }
 
-    $uuid = substr( $MD5_CALCULATOR->digest(), 0, 16 );    # Use only first 16 Bytes
+    # Use only first 16 Bytes ...
+    $uuid = substr( $MD5_CALCULATOR->digest(), 0, 16 ); 
 
     return _set_uuid_version( $uuid => 0x30 );
 }
 
 sub _create_v4_uuid {
-
     # Create random value in UUID ...
     my $uuid = '';
     for ( 1 .. 4 ) {
@@ -403,41 +417,46 @@ sub _create_v5_uuid {
     my $name    = shift;
     my $uuid    = '';
 
-	if (!$SHA1_CALCULATOR) {
-         croak __PACKAGE__
-        . '::create_uuid(): No SHA-1 implementation available! '
-        . 'Please install Digest::SHA1, Digest::SHA or '
-        . 'Digest::SHA::PurePerl to use SHA-1 based UUIDs.';
-	}
-
+    if (!$SHA1_CALCULATOR) {
+        croak __PACKAGE__
+            . '::create_uuid(): No SHA-1 implementation available! '
+            . 'Please install Digest::SHA1, Digest::SHA or '
+            . 'Digest::SHA::PurePerl to use SHA-1 based UUIDs.'
+            ;
+    }
 
     $SHA1_CALCULATOR->reset();
     $SHA1_CALCULATOR->add($ns_uuid);
 
-
     if ( ref($name) =~ m/^(?:GLOB|IO::)/ ) {
         $SHA1_CALCULATOR->addfile($name);
     } elsif ( ref $name ) {
-        croak __PACKAGE__ . '::create_uuid(): Name for v5 UUID' . ' has to be SCALAR, GLOB or IO object, not '.ref($name).'!';
+        croak __PACKAGE__
+            . '::create_uuid(): Name for v5 UUID'
+            . ' has to be SCALAR, GLOB or IO object, not '
+            . ref($name) .'!'
+            ;
     } elsif ( defined $name ) {
         $SHA1_CALCULATOR->add($name);
     } else {
-        croak __PACKAGE__ . '::create_uuid(): Name for v5 UUID is not defined!';
+        croak __PACKAGE__ 
+            . '::create_uuid(): Name for v5 UUID is not defined!';
     }
 
-    $uuid = substr( $SHA1_CALCULATOR->digest(), 0, 16 );    # Use only first 16 Bytes
+    # Use only first 16 Bytes ...
+    $uuid = substr( $SHA1_CALCULATOR->digest(), 0, 16 );
 
     return _set_uuid_version($uuid => 0x50);
 }
 
 sub _set_uuid_version {
-	my $uuid = shift;
-	my $version = shift;
+    my $uuid = shift;
+    my $version = shift;
     substr $uuid, 6, 1, chr( ord( substr( $uuid, 6, 1 ) ) & 0x0f | $version );
 
-	return $uuid;
-
+    return $uuid;
 }
+
 
 =item B<create_UUID_as_string()>, B<create_uuid_as_string()> (:std)
 
@@ -512,7 +531,7 @@ with C<is_UUID_string>!
 =cut
 
 sub string_to_uuid {
-	my $uuid = shift;
+    my $uuid = shift;
 
     use bytes;
     return $uuid if length $uuid == 16;
@@ -643,33 +662,55 @@ sub equal_uuids {
 #
 # Private functions ...
 #
+my $Last_Pid;
+my $Clk_Seq;
 
-my $last_timestamp;
-my $clk_seq;
+# There is a problem with $Clk_Seq and rand() on forking a process using
+# UUID::Tiny, because the forked process would use the same basic $Clk_Seq and
+# the same seed (!) for rand(). $Clk_Seq is UUID::Tiny's problem, but with
+# rand() it is Perl's bad behavior. So _init_globals() has to be called before
+# using $Clk_Seq or rand() ...
+
+sub _init_globals {
+    lock $Last_Pid;
+    lock $Clk_Seq;
+
+    if (!defined $Last_Pid || $Last_Pid != $$) {
+        $Last_Pid = $$;
+        $Clk_Seq = _generate_clk_seq();
+        srand();
+    }
+
+    return;
+}
+
+
+my $Last_Timestamp;
 
 sub _get_clk_seq {
     my $ts = shift;
-    lock $last_timestamp;
-    lock $clk_seq;
+    _init_globals();
 
-    $clk_seq = _generate_clk_seq() if !defined $clk_seq;
+    lock $Last_Timestamp;
+    lock $Clk_Seq;
 
-    if (!defined $last_timestamp || $ts <= $last_timestamp) {
-        $clk_seq = ($clk_seq + 1) % 65536;
+    if (!defined $Last_Timestamp || $ts <= $Last_Timestamp) {
+        $Clk_Seq = ($Clk_Seq + 1) % 65536;
     }
-    $last_timestamp = $ts;
+    $Last_Timestamp = $ts;
 
-    return $clk_seq & 0x03ff;
+    return $Clk_Seq & 0x03ff;
 }
 
 sub _generate_clk_seq {
     my $self = shift;
+    _init_globals();
 
     my @data;
     push @data, q{}  . $$;
     push @data, q{:} . Time::HiRes::time();
 
-	# 16 bit digest
+    # 16 bit digest
     return unpack 'n', _digest_as_octets(2, @data);
 }
 
@@ -691,6 +732,7 @@ sub _random_node_id {
 }
 
 sub _rand_32bit {
+    _init_globals();
     my $v1 = int(rand(65536)) % 65536;
     my $v2 = int(rand(65536)) % 65536;
     return ($v1 << 16) | $v2;
@@ -720,7 +762,7 @@ sub _fold_into_octets {
 sub _digest_as_octets {
     my $num_octets = shift;
 
-	$MD5_CALCULATOR->reset();
+    $MD5_CALCULATOR->reset();
     $MD5_CALCULATOR->add($_) for @_;
 
     return _fold_into_octets($num_octets, $MD5_CALCULATOR->digest);
@@ -768,7 +810,10 @@ E<lt>banb@cpan.orgE<gt>. But that module is announced to be marked as
 So I decided to reduce it to the necessary parts and to re-implement those
 parts with a functional interface ...
 
-Christian Augustin, C<< <mail at caugustin.de> >>
+Jesse Vincent, C<< <jesse at bestpractical.com> >>, improved version 1.02 with
+his tips and a heavy refactoring. Consider him a co-author of UUID::Tiny.
+
+-- Christian Augustin, C<< <mail at caugustin.de> >>
 
 
 =head1 BUGS
@@ -815,7 +860,7 @@ Kudos to ITO Nobuaki E<lt>banb@cpan.orgE<gt> for his UUID::Generator::PurePerl
 module! My work is based on his code, and without it I would've been lost with
 all those incomprehensible RFC texts and C codes ...
 
-Thanks to Jesse Vincent for his feedback and tips.
+Thanks to Jesse Vincent (C<< <jesse at bestpractical.com> >>) for his feedback, tips and refactoring!
 
 
 =head1 COPYRIGHT & LICENSE

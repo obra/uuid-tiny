@@ -131,40 +131,43 @@ undef $fh;
 #
 # Create v5 UUIDs ...
 #
-diag("UUID_SHA1_AVAIL is " . UUID_SHA1_AVAIL);
-is(
-    create_uuid_as_string( UUID_SHA1, UUID_NS_DNS, 'python.org' ),
-    '886313e1-3b8a-5372-9b90-0c9aee199e5d',
-    'v5 UUID with DNS und python.org'
-);
-is(
-    create_uuid_as_string( UUID_V5, UUID_NS_DNS, 'www.doughellmann.com' ),
-    'e3329b12-30b7-57c4-8117-c2cd34a87ce9',
-    'v5 UUID test with www.doughellmann.com and DNS Namespace UUID'
-);
+if (!UUID_SHA1_AVAIL) {
+    diag('No SHA1 available, skipping UUID_SHA1 tests ...');
+}
+else {
+    is(
+        create_uuid_as_string( UUID_SHA1, UUID_NS_DNS, 'python.org' ),
+        '886313e1-3b8a-5372-9b90-0c9aee199e5d',
+        'v5 UUID with DNS und python.org'
+    );
+    is(
+        create_uuid_as_string( UUID_V5, UUID_NS_DNS, 'www.doughellmann.com' ),
+        'e3329b12-30b7-57c4-8117-c2cd34a87ce9',
+        'v5 UUID test with www.doughellmann.com and DNS Namespace UUID'
+    );
 
-open $fh, '<', 't/data/test.jpg' or croak "Open failed!";
-is(
-    create_uuid_as_string( UUID_SHA1, $fh ),
-    create_uuid_as_string( UUID_V5, $test_data ),
-    'V3 UUID from GLOB'
-);
-undef $fh;
+    open $fh, '<', 't/data/test.jpg' or croak "Open failed!";
+    is(
+        create_uuid_as_string( UUID_SHA1, $fh ),
+        create_uuid_as_string( UUID_V5, $test_data ),
+        'V5 UUID from GLOB'
+    );
+    undef $fh;
 
-$fh = new IO::File 't/data/test.jpg' or croak 'IO::File failed.';
-is(
-    create_uuid_as_string( UUID_SHA1, $fh ),
-    create_uuid_as_string( UUID_V5, $test_data ),
-    'V3 UUID from IO::File'
-);
-undef $fh;
+    $fh = new IO::File 't/data/test.jpg' or croak 'IO::File failed.';
+    is(
+        create_uuid_as_string( UUID_SHA1, $fh ),
+        create_uuid_as_string( UUID_V5, $test_data ),
+        'V5 UUID from IO::File'
+    );
+    undef $fh;
 
-is(
-    create_uuid(UUID_SHA1, 'Ein Test-String.'),
-    create_uuid(UUID_V5, UUID_NIL, 'Ein Test-String.'),
-    'create_uuid without NS UUID'
-);
-
+    is(
+        create_uuid(UUID_SHA1, 'Ein Test-String.'),
+        create_uuid(UUID_V5, UUID_NIL, 'Ein Test-String.'),
+        'create_uuid without NS UUID'
+    );
+}
 
 #
 # is_v1_uuid() and is_v5_uuid() ...
