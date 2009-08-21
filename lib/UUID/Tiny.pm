@@ -33,11 +33,11 @@ UUID::Tiny - Pure Perl UUID Support With Functional Interface
 
 =head1 VERSION
 
-Version 1.01_07
+Version 1.02
 
 =cut
 
-our $VERSION = '1.01_07';
+our $VERSION = '1.02';
 
 
 =head1 SYNOPSIS
@@ -74,6 +74,9 @@ creation and testing. This module provides the creation of version 1 time
 based UUIDs (using random multicast MAC addresses), version 3 MD5 based UUIDs,
 version 4 random UUIDs, and version 5 SHA-1 based UUIDs.
 
+ATTENTION! UUID::Tiny uses Perl's C<rand()> to create the basic random
+numbers, so the created v4 UUIDs are B<not> cryptographically strong!
+
 No fancy OO interface, no plethora of different UUID representation formats
 and transformations - just string and binary. Conversion, test and time
 functions equally accept UUIDs and UUID strings, so don't bother to convert
@@ -91,8 +94,12 @@ version 1 UUIDs, or an OO interface, and if you can afford module compilation
 and installation on the target system, then better look at other CPAN UUID
 modules like L<Data::UUID>.
 
-This module should be thread save, because the (necessary) global variables
-are locked in the functions that access them. (Not tested.)
+This module is "fork safe", especially for random UUIDs (it works around
+Perl's rand() problem when forking processes).
+
+This module should be "thread safe," because its global variables
+are locked in the functions that access them. (Not tested - if you can provide
+some tests, please tell me!)
 
 =cut
 
@@ -109,6 +116,9 @@ modules UUID::Tiny depends on:
     MIME::Base64  Perl 5.8 core
     Time::HiRes   Perl 5.8 core
     POSIX         Perl 5.8 core
+
+If you are using this module on a Perl prior to 5.10 and you don't have
+Digest::SHA1 installed, you can use Digest::SHA::PurePerl instead.
 
 =cut
 
@@ -374,6 +384,8 @@ sub _create_v3_uuid {
     my $name    = shift;
     my $uuid    = '';
 
+    lock $MD5_CALCULATOR;
+
     # Create digest in UUID ...
     $MD5_CALCULATOR->reset();
     $MD5_CALCULATOR->add($ns_uuid);
@@ -424,6 +436,8 @@ sub _create_v5_uuid {
             . 'Digest::SHA::PurePerl to use SHA-1 based UUIDs.'
             ;
     }
+
+    lock $SHA1_CALCULATOR;
 
     $SHA1_CALCULATOR->reset();
     $SHA1_CALCULATOR->add($ns_uuid);
@@ -668,8 +682,8 @@ my $Clk_Seq;
 # There is a problem with $Clk_Seq and rand() on forking a process using
 # UUID::Tiny, because the forked process would use the same basic $Clk_Seq and
 # the same seed (!) for rand(). $Clk_Seq is UUID::Tiny's problem, but with
-# rand() it is Perl's bad behavior. So _init_globals() has to be called before
-# using $Clk_Seq or rand() ...
+# rand() it is Perl's bad behavior. So _init_globals() has to be called every
+# time before using $Clk_Seq or rand() ...
 
 sub _init_globals {
     lock $Last_Pid;
